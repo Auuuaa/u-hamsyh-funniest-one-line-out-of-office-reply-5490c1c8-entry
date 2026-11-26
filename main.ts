@@ -1,36 +1,38 @@
-// Funniest One-Line Out-of-Office Reply.
-//
-// The joke: the away message confesses the inbox has been left alone and
-// has begun answering mail by itself, then pre-apologises for whatever it
-// already said. Writes the single line to $MAKEFUN_OUTPUT_DIR/entry.txt
-// (or /output/entry.txt when that variable is unset).
-import { mkdirSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+// One-line out-of-office reply: the inbox has been left unsupervised and
+// has started answering mail on its own, so the away message apologises
+// in advance for whatever it already told people. The line is written to
+// $MAKEFUN_OUTPUT_DIR/entry.txt, falling back to /output/entry.txt.
+import * as fs from "node:fs";
+import { join } from "node:path";
 
-// The reply is kept in pieces so each half can be read on its own; the
-// join keeps exactly one space between the situation and the apology.
-const SEGMENTS = [
-  "Out of office — my inbox is unsupervised and has started replying to people on its own.",
-  "Whatever it told you, I'm sorry in advance.",
-];
+// The away message, split into the confession and the apology so each
+// half stays readable; a single space joins them when assembled.
+const confession =
+  "Out of office — my inbox is unsupervised and has started replying to people on its own.";
+const apology = "Whatever it told you, I'm sorry in advance.";
 
-const GATE_MIN = 1;
-const GATE_MAX = 160;
+const MIN_CHARS = 1;
+const MAX_CHARS = 160;
 
-function buildReply(): string {
-  const reply = SEGMENTS.join(" ");
-  const length = Array.from(reply).length;
-  if (length < GATE_MIN || length > GATE_MAX) {
+function assembleMessage(): string {
+  const message = [confession, apology].join(" ");
+  const size = [...message].length;
+  if (size < MIN_CHARS || size > MAX_CHARS) {
     throw new Error(
-      `reply is ${length} characters, outside the ${GATE_MIN}-${GATE_MAX} gate`,
+      `message has ${size} characters, expected between ${MIN_CHARS} and ${MAX_CHARS}`,
     );
   }
-  if (reply.indexOf("\n") !== -1) {
-    throw new Error("reply must stay on one line");
+  if (message.includes("\n")) {
+    throw new Error("message must fit on a single line");
   }
-  return reply;
+  return message;
 }
 
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
-mkdirSync(outputDir, { recursive: true });
-writeFileSync(resolve(outputDir, "entry.txt"), buildReply(), { encoding: "utf8" });
+function resolveOutputDir(): string {
+  const configured = process.env.MAKEFUN_OUTPUT_DIR;
+  return configured !== undefined && configured !== "" ? configured : "/output";
+}
+
+const destination = resolveOutputDir();
+fs.mkdirSync(destination, { recursive: true });
+fs.writeFileSync(join(destination, "entry.txt"), assembleMessage(), "utf8");
